@@ -100,11 +100,11 @@ hbcu_by_decade %>%
   ggplot(aes(fill = category, values = enrollments %/% 10000)) +
   geom_waffle(color = "white", size = 0.25, n_rows = 10) +
   facet_wrap(~decade, ncol = 1, strip.position = "left") + 
-  scale_x_continuous(labels = function(x) x * 10) +
+  scale_x_continuous(labels = scales::unit_format(unit = "M", scale = 0.1)) +
   scale_y_discrete() +
   ggthemes::scale_fill_tableau(name=NULL) +
   labs(title = "HBCU Enrollments: 1990s vs. 2000s",
-       subtitle = "Total Number of Enrollments (in Thousands)",
+       subtitle = "Total Number of Enrollments (in Millions)",
        caption = "Visualization by @datadavidz | Data Courtesy of Data.World | #TidyTuesday") +
   ggthemes::theme_fivethirtyeight() +
   theme(panel.grid.major.x = element_blank(), axis.ticks.x = element_line())
