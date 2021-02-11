@@ -1,0 +1,150 @@
+---
+title: "Break Free From Plastic"
+date: 2021-01-27
+output: html_output
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(ggthemes)
+
+theme_set(theme_minimal())
+
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-01-26")
+
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+Extract the only data table (plastics)
+```{r}
+plastics <- tt$plastics
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+There are only two years of data: 2019 (9296 entries) and 2020 (4084 entries)
+There are EMPTY country names (1346 entries).  Not sure what EMPTY means.
+There is a parent company called "Grand Total" which doesn't seem to be a company name.
+
+Does Grand Total equal the sum total for a country in 2019?
+```{r Wrangle}
+argentina_sum <- plastics %>% 
+  filter(country == "Argentina", parent_company != "Grand Total") %>%
+  group_by(country, year) %>% 
+  summarize(across(empty:grand_total, sum)) %>%
+  #summarize(hdpe = sum(hdpe)) %>%
+  ungroup()
+
+argentina_total <- plastics %>%
+  filter(country == "Argentina", parent_company == "Grand Total") %>%
+  select(country, year, empty:grand_total)
+
+bind_rows(argentina_sum, argentina_total) %>% arrange(year)
+
+```
+Yes, parent_company as "Grand Total" was just the sum total for a country in that year.
+
+Clean up the Country Name
+```{r}
+plastics <- plastics %>%
+  mutate(country = str_to_title(country, locale = "en")) %>%
+  mutate(country = ifelse(country == "Taiwan_ Republic Of China (Roc)", "Taiwan", country))
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+What are the top 10 countries participating in BFFP events?
+```{r visualize}
+
+plastics_subset <- plastics %>%
+  select(country, year, volunteers) %>%
+  distinct() %>%
+  group_by(country) %>%
+  summarize(total_vols = sum(volunteers), .groups = "drop") %>%
+  arrange(desc(total_vols))
+  
+top_countries <- plastics_subset %>% 
+  slice(1:10) %>%
+  pull(country)
+
+plastics %>%
+  left_join(plastics_subset, by = "country") %>%
+  filter(country %in% top_countries) %>%
+  select(country, year, volunteers, total_vols) %>%
+  distinct() %>%
+  mutate(country = fct_reorder(country, total_vols)) %>%
+  mutate(year = as_factor(year)) %>%
+  mutate(year = fct_relevel(year, rev)) %>%
+  ggplot(aes(x = volunteers, y = country, fill = year)) +
+  geom_col() +
+  labs(title = "Top 10 Countries Participating in BFFP Events",
+       subtitle = "Volunteers at Plastic Clean-up Events (www.breakfreefromplastic.org)",
+       caption = "Created by @datadavidz | Data Courtesy of Sarah Sauve | #TidyTuesday",
+       x = "Number of Volunteers",
+       y = NULL,
+       fill = "Year") +
+  theme_fivethirtyeight() +
+  scale_fill_fivethirtyeight()
+
+```
+
+
+# Save Image
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "top10countriesBFFP.png",
+  device = "png")
+
+```
