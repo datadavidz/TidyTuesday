@@ -1,0 +1,169 @@
+---
+title: "W.E.B. Du Bois"
+author: "datadavidz"
+date: "2/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 6)
+```
+
+```{r}
+library(tidyverse)
+library(showtext)
+
+theme_set(theme_minimal())
+```
+
+```{r}
+#font_add_google(name = "Orbitron", family = "orbitron")
+#font_add_google(name = "Gruppo", family = "gruppo")
+font_add_google(name = "Syncopate", family = "syncopate")
+showtext_auto()
+```
+
+
+
+Create a spiral
+```{r}
+radius <- 0
+x <- vector(mode ="numeric", length = 100)
+y <- vector(mode = "numeric", length = 100)
+i <- 0
+num_segments <- 1e4
+max_radius <- 1
+delta_r <- max_radius / num_segments
+spin_rate <- 10
+
+for (i in 1:(num_segments-1)) {
+  #print(i)
+  radius <- radius + delta_r
+  x[i+1] <- x[i] + radius * sin((2 * pi * i / num_segments) * spin_rate)
+  y[i+1] <- y[i] + radius * cos((2 * pi * i / num_segments) * spin_rate)
+}
+
+```
+
+```{r}
+df <- tibble(x, y)
+
+p <- df %>%
+  #slice(1:150) %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_path(size = 3, linejoin = "round", lineend = "square", linemitre = "10", color = "red")
+```
+
+```{r}
+spiral_df <- df %>%
+  filter(row_number() > 2500 & row_number() < 7100)
+```
+
+```{r}
+a_font <- "syncopate"
+a_size <- 2
+
+p <- ggplot() +
+  geom_path(data = spiral_df, aes(x = x, y = y), size = 3, color = "#CC0000") +
+  #geom_segment(aes(x = -100, y = 50, xend = 100, yend = 200), size = 5) +
+  geom_polygon(aes(x = c(-99, -89, 105, 95), y = c(61, 61, 275, 275), fill = "A")) +
+  geom_polygon(aes(x = c(95, 105, 55, 45), y = c(275, 275, 325, 325), fill = "B")) +
+  geom_polygon(aes(x = c(45, 55, 80, 70), y = c(325, 325, 350, 350), fill = "C")) +
+  geom_polygon(aes(x = c(80, 80, -175, -175), y = c(350, 360, 360, 350), fill = "D")) +
+  annotate("text", x = 0, y = 0, label = "734,952", family = a_font) +
+  annotate("text", x = -100, y = 345, label = "78,139 NEGROES IN CITIES", size = a_size, family = a_font) +
+  annotate("text", x = -100, y = 335, label = "OF OVER 10,000 INHABITANTS", size = a_size, family = a_font) +
+  annotate("text", x = 82, y = 335, label = "8,025", size = a_size, family = a_font) +
+  annotate("text", x = 135, y = 340, label = "NEGROES IN CITIES", size = a_size, family = a_font) +
+  annotate("text", x = 143, y = 330, label = "FROM 5,000 TO 10,000", size = a_size, family = a_font) +
+  annotate("text", x = 35, y = 310, label = "37,699", size = a_size, family = a_font) +
+  annotate("text", x = 35, y = 300, label = "NEGROES", size = a_size, family = a_font) +
+  annotate("text", x = 35, y = 290, label = "IN CITIES", size = a_size, family = a_font) +
+  annotate("text", x = 35, y = 280, label = "FROM", size = a_size, family = a_font) +
+  annotate("text", x = 35, y = 270, label = "2,500 TO 5,000", size = a_size, family = a_font) +
+  
+  xlim(-200, 200) +
+  scale_fill_manual(values = c("#CC0000", "#FFD700", "#330099", "#336600")) +
+  labs(title = "CITY AND RURAL POPULATION.\n 1890.",
+       caption = "Re-creation by @datadavidz | #DuBoisChallenge | #TidyTuesday") +
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        plot.background = element_rect(fill = "#EBD5B3"))
+
+p
+```
+
+```{r}
+curve_text <- function(p, x, y, angle, size, label) {
+  return (p + annotate("text", x = x, y = y, angle = angle, size = size, label = label, hjust = 0.5, vjust = 0, family = a_font))
+}
+```
+
+```{r}
+curve_text(p, 0, -150, 45, 3, "hello")
+```
+
+```{r}
+curve_label <- "NEGROES LIVING IN THE COUNTRY AND VILLAGES"
+
+curve_label_chars <- unlist(str_split(curve_label, ""))
+```
+
+```{r}
+curve_text_path <- df %>% 
+  filter(row_number() > 7600 & row_number() < 7900)
+```
+
+```{r}
+p + geom_point(data = curve_text_path, aes(x = x, y = y))
+```
+
+```{r}
+curve_text_loc <- curve_text_path %>%
+  arrange(x) %>%
+  mutate(ind = rep(1:7, length.out = n())) %>%
+  filter(ind == 1)
+```
+
+```{r}
+curve_x <- curve_text_loc$x
+curve_y <- curve_text_loc$y
+
+curve_angle = atan((curve_y[2] - curve_y[1]) / (curve_x[2] - curve_x[1])) * 180 / pi
+```
+
+```{r}
+curve_text(p, curve_x[1], curve_y[1], curve_angle, 3, "hello")
+```
+
+```{r}
+i <- 0
+curve_angle <- vector(mode = "numeric", length = 42)
+
+for (i in 1:42) {
+  curve_angle[i] <- atan((curve_y[i+1] - curve_y[i]) / (curve_x[i+1] - curve_x[i])) * 180 / pi 
+}
+```
+
+```{r}
+i <- 0
+p2 <- p
+
+for (i in 1:42) {
+  p2 <- curve_text(p2, curve_x[i], curve_y[i], curve_angle[i], a_size, curve_label_chars[i])
+}
+
+p2
+```
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "spiral_dubois.png",
+  device = "png")
+
+```
