@@ -1,0 +1,144 @@
+---
+title: "TidyTemplate"
+date: 2021-02-24
+output: html_output
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+
+theme_set(theme_light())
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-02-23")
+
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+Employment data from 2015-2020
+For some reason, the race and genders are also captured in industry
+Issue with mining, quarrying label (one label has backslashes)
+There are 330 NAs for industry
+Minor occupation doesn't seem to be the same between 2019 and 2020
+
+
+```{r Wrangle}
+tt$employed %>% count(industry, sort = TRUE) %>% arrange(n)
+
+non_industry_terms <- c("Asian", "Black or African American", "White", "Men", "Women")
+
+employed <- tt$employed %>% 
+  mutate(industry = str_replace(industry, "\r\n", " ")) %>% 
+  filter(!is.na(industry)) %>%
+  filter(!(industry %in% non_industry_terms))
+
+employed %>% count(industry)
+```
+
+```{r}
+mfg_durable <- employed %>%
+  filter(industry == "Durable goods" | industry == "Manufacturing" | industry == "Nondurable goods") %>%
+  filter(race_gender == "TOTAL") %>%
+  filter(year == 2019 | year == 2020) %>%
+  select(-minor_occupation) %>%
+  # group_by(industry, major_occupation) %>%
+  # arrange(year, .by_group = TRUE) %>%
+  # ungroup() %>%
+  group_by(industry, major_occupation, year) %>%
+  summarize(employ_n = sum(employ_n), .groups = "keep") %>%
+  ungroup() %>%
+  group_by(industry, major_occupation) %>%
+  mutate(change = last(employ_n) / first(employ_n) - 1) %>%
+  ungroup() %>%
+  filter(year == 2019)
+
+mfg_durable
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+```{r Visualize}
+mfg_durable %>%
+  mutate(major_occupation = fct_reorder(major_occupation, -change)) %>%
+  ggplot(aes(x = change, y = major_occupation, color = industry)) +
+  #facet_wrap(~industry) +
+  #geom_col(position = "dodge") +
+  geom_point(aes(size = employ_n), position = position_dodge(width = 0.7)) +
+  geom_errorbarh(aes(xmin = 0, xmax = change), height = 0, position = position_dodge(width = 0.7)) +
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_y_discrete(labels = function(x) str_wrap(x, 25)) +
+  scale_size_continuous(labels = scales::comma_format(), guide = FALSE) +
+  #scale_color_discrete(guide = guide_legend(reverse = TRUE)) +
+  ggthemes::scale_color_tableau() +
+  labs(title = "Impact on Manufacturing Sector Jobs in 2020",
+       subtitle = "Size of point is proportional to number employed in 2019",
+       x = "Employment Change vs. 2019",
+       y = NULL,
+       color = NULL,
+       size = "# of Jobs") +
+  ggthemes::theme_fivethirtyeight(base_size = 11)
+  #theme(axis.title = element_text(size = 4))
+
+  
+```
+
+# Save Image
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "My TidyTuesday Plot.png",
+  device = "png")
+
+```
