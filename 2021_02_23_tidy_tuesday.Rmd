@@ -64,8 +64,6 @@ Employment data from 2015-2020
 For some reason, the race and genders are also captured in industry
 Issue with mining, quarrying label (one label has backslashes)
 There are 330 NAs for industry
-Minor occupation doesn't seem to be the same between 2019 and 2020
-
 
 ```{r Wrangle}
 tt$employed %>% count(industry, sort = TRUE) %>% arrange(n)
@@ -79,6 +77,16 @@ employed <- tt$employed %>%
 
 employed %>% count(industry)
 ```
+Looking at minor occupations in manufacturing between 2019 and 2020 (seems consistent)
+```{r}
+employed %>%
+  filter(industry == "Manufacturing") %>%
+  filter(year == 2019 | year == 2020) %>%
+  select(minor_occupation, year) %>%
+  distinct() %>%
+  arrange(minor_occupation, year)
+```
+
 
 ```{r}
 mfg_durable <- employed %>%
