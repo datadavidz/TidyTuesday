@@ -145,11 +145,15 @@ tt$youtube %>%
 
 ```
 
-```{r}
+```{r, fig.width = 7, fig.height = 7}
+library(tidytext)
+
 ads_per_category %>%
+  mutate(brand = reorder_within(brand, prop, category)) %>%
   ggplot(aes(x = prop, y = brand)) +
   facet_wrap(~category, scale = "free_y") +
-  geom_col()
+  geom_col() +
+  scale_y_reordered()
 ```
 
 Create a doughnut chart
