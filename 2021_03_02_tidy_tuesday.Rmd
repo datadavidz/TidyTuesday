@@ -263,12 +263,13 @@ p6_patriotic
 (p1_funny + p2_animals + p3_danger) / (p4_celebrity + p5_sexy + p6_patriotic) +
   plot_annotation(theme = theme(plot.background = element_rect(fill = "black"),
                                 plot.subtitle = element_markdown(color = "white", hjust = 0.5, size = 16, face = "bold"),
+                                plot.caption = element_text(color = "white", size = 10),
                                 #panel.background = element_blank(),
                                 plot.title = element_text(color = "white", size = 24, family = "sans", face = "bold", hjust = 0.5)),
                   title = "Superbowl Commercials",
                   subtitle = "<span style='color: white;'>Commercial</span><span style='color:#39FF14;'> has</span>
                   or<span style='color:#A9A9A9;'> does not have</span> this element",
-                  caption = )
+                  caption = "Viz by @datadavidz | Data Courtesy of FiveThirtyEight | #TidyTuesday")
 ```
 
 
