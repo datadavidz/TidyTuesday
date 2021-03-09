@@ -139,7 +139,7 @@ big_budget %>%
         panel.grid.major.y = element_blank()
         ) +
   fishualize::scale_color_fish_d(option = "Cirrhilabrus_tonozukai") +
-  labs(title = "Bechdel Test and FIlm Profitability",
+  labs(title = "Bechdel Test and Film Profitability",
        subtitle = "Big Budget Films (2003-2013): Point size is proportional to budget",
        y = "Profitability (Domestic Gross / Budget)",
        color = "Bechdel Test",
