@@ -142,7 +142,8 @@ big_budget %>%
   labs(title = "Bechdel Test and FIlm Profitability",
        subtitle = "Big Budget Films (2003-2013): Point size is proportional to budget",
        y = "Profitability (Domestic Gross / Budget)",
-       color = "Bechdel Test")
+       color = "Bechdel Test",
+       caption = "Viz by @datadavidz | Data source: FiveThirtyEight | #TidyTuesday")
 ```
 
 
