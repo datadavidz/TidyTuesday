@@ -89,6 +89,8 @@ Let's add the issue to the unvotes data
 by_issue <- tt$unvotes %>%
   left_join(tt$issue %>% select(rcid, issue), by = "rcid") %>%
   filter(!is.na(issue)) %>%
+  mutate(country_code = ifelse(country == "Namibia", "NA", country_code)) %>% #correct for NA assignment
+  mutate(country_code = ifelse(country == "Yugoslavia", "RS", country_code)) %>% #assign Yugoslavia to Serbia
   group_by(country, country_code, issue) %>%
   summarize(n_votes = n(),
             n_yes = sum(vote == "yes"),
@@ -110,7 +112,12 @@ by_issue %>%
   mutate(country = fct_reorder(country, pct_yes)) %>%
   ggplot(aes(x = pct_yes, y = country)) +
     geom_point(aes(size = n_votes)) +
-    scale_x_continuous(labels = scales::percent)
+    scale_x_continuous(labels = scales::percent) +
+    theme_light() +
+    labs(title = "Top and Bottom 10 Countries on Arms Control Votes",
+         x = "% of YES Votes",
+         y = NULL,
+         size = "# of Votes")
 ```
 
 
@@ -124,7 +131,7 @@ ggplot() +
 
   
 ```
-
+Cleaning up using theme_map and removing Antarctica.
 ```{r}
 map_data("world") %>%
   filter(region != "Antarctica") %>%
@@ -132,6 +139,25 @@ map_data("world") %>%
   geom_polygon() +
   theme_map()
 ```
+
+What if I just join world_map with by_issue region?
+```{r}
+world_map %>%
+  left_join(filter(by_issue, issue == "Arms control and disarmament"), by = c("region" = "country")) %>%
+  ggplot(aes(x = long, y = lat, group = group, fill = pct_yes)) +
+    geom_polygon() +
+    theme_map() + 
+    scale_fill_gradient2(low = "red", high = "blue", midpoint = 0.7, labels = scales::percent) +
+    labs(title = "United Nations: <span style = 'color:red;'>Hawks</span> vs. <span style = 'color:purple;'>Doves</span>",
+         subtitle = "Percentage of YES votes on Arms Control and Disarmament Issues",
+         fill = "% of YES votes",
+         caption = "Graphic: @datadavidz | Source: Harvard's Dataverse | #TidyTuesday") +
+    theme(plot.title = element_markdown(face = "bold", size = 24, hjust = 0.5),
+          plot.subtitle = element_text(face = "bold", size = 12, hjust = 0.5),
+          legend.title = element_text(face = "bold"))
+```
+
+
 
 ```{r}
 world_data <- map_data("world") %>%
