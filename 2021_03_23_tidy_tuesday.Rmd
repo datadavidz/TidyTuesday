@@ -158,7 +158,7 @@ world_map %>%
 ```
 
 
-
+The mapname column in iso3166 contains regular expressions to help with matching.
 ```{r}
 world_data <- map_data("world") %>%
   regex_left_join(maps::iso3166 %>% 
