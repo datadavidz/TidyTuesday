@@ -1,0 +1,289 @@
+---
+title: "TidyTemplate"
+date: 2021-04-06
+output: html_output
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(patchwork)
+library(showtext)
+
+font_add_google(name = "Oswald")
+font_add_google(name = "Great Vibes", family = "Great Vibes")
+
+showtext_auto()
+theme_set(theme_minimal())
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-04-06")
+
+```
+
+```{r}
+forest_area_km <- read_csv("./data/forest-area-km.csv") %>% janitor::clean_names()
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+```{r Wrangle}
+skimr::skim(tt$forest)
+head(tt$forest, 20)
+
+skimr::skim(tt$forest_area)
+head(tt$forest_area, 20)
+
+skimr::skim(forest_area_km)
+head(forest_area_km, 20)
+
+skimr::skim(tt$brazil_loss)
+head(tt$brazil_loss, 20)
+
+skimr::skim(tt$soybean_use)
+head(tt$soybean_use, 20)
+
+skimr::skim(tt$vegetable_oil)
+head(tt$vegetable_oil, 20)
+```
+
+Check what Northern America means - does it include Central America?
+```{r}
+continents <- c("Africa", "Asia", "Europe", "North America", "South America", "Oceania")
+continents_plus <- c("Africa", "Asia", "Europe", "Northern America", "South America", "Oceania", "Central America", "Caribbean")
+
+forest_continent <- forest_area_km %>%
+  filter(entity %in% continents_plus) %>%
+  mutate(entity = case_when(entity == "Northern America" ~ "North America",
+                            entity == "Central America" ~ "North America",
+                            entity == "Caribbean" ~ "North America",
+                            TRUE ~ entity)) %>%
+  group_by(entity, year) %>%
+  summarize(forest_area = sum(forest_area), .groups = "drop")
+
+forest_change <- forest_continent %>%
+  filter(year == 1990 | year == 2020) %>%
+  pivot_wider(names_from = year, names_prefix = "forest_area_", values_from = forest_area ) %>%
+  mutate(forest_change = forest_area_2020 - forest_area_1990)
+```
+
+
+```{r}
+# forest_change <- forest_area_km %>%
+#   filter(entity %in% continents) %>%
+#   filter(year == 1990 | year == 2020) %>%
+#   pivot_wider(names_from = year, names_prefix = "forest_area_", values_from = forest_area ) %>%
+#   mutate(forest_change = forest_area_2020 - forest_area_1990)
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+```{r Visualize}
+
+forest_continent %>%
+  filter(entity %in% continents) %>%
+  left_join(forest_change %>% select(entity, forest_change), by = "entity") %>%
+  mutate(entity = fct_reorder(entity, forest_change)) %>%
+  ggplot(aes(x = year, y = forest_area, fill = entity)) +
+  geom_area()
+  
+```
+Create a gray scale
+```{r}
+gray_highlight_pal <- c("Asia" = "#DCDCDC", "Europe" = "#D3D3D3", "North America" = "#C0C0C0", 
+                         "Oceania" = "#A9A9A9", "Africa" = "#808080", "South America" = "#FFFF00")
+single_highlight_pal <- c("Asia" = "#808080", "Europe" = "#808080", "North America" = "#808080", 
+                        "Oceania" = "#808080", "Africa" = "#808080", "South America" = "#FFFF00")
+sa_highlight_pal <- c("Venezuela" = "#808080", "Colombia" = "#808080", "Argentina" = "#808080", 
+                        "Bolivia" = "#808080", "Paraguay" = "#808080", "Brazil" = "#FFFF00")
+
+```
+
+
+```{r, fig.width = 6, fig.height = 4}
+forest_change %>%
+  mutate(entity = fct_reorder(entity, forest_change, .desc = TRUE)) %>%
+  ggplot(aes(x = "Continent", y = forest_change, fill = entity)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_hline(yintercept = 0, lty = 2) +
+  scale_y_continuous(labels = scales::comma_format()) +
+  scale_fill_manual(values = gray_highlight_pal) +
+  expand_limits(y = c(-200e6, 200e6)) +
+  labs(title = "By Continent",
+       x = NULL,
+       y = "Forest Area (hectares)") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_blank(),
+        axis.line.x = element_blank(),
+        legend.title = element_blank()
+        )
+```
+```{r}
+p1 <- forest_change %>%
+  mutate(entity = fct_reorder(entity, forest_change)) %>%
+  ggplot(aes(x = forest_change, y = entity, fill = entity)) +
+  geom_col() +
+  geom_vline(xintercept = 0, lty = 2) +
+  scale_x_continuous(labels = scales::label_number(scale = 1/1e6, suffix = " MM")) +
+  scale_fill_manual(values = single_highlight_pal) +
+  expand_limits(x = c(-150e6, 150e6)) +
+  labs(title = "By Continent",
+       x = "Forest Area (hectares)",
+       y = NULL) +
+  theme(legend.position = "none",
+        plot.title = element_text(family = "Oswald", size = 16, hjust = 0.5),
+        axis.title.x = element_text(size = 10)
+  #       axis.text.x = element_blank(),
+  #       axis.line.x = element_blank(),
+  #       legend.title = element_blank()
+         )
+
+p1
+```
+Within South America
+```{r}
+sa_countries <- c("Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Falkland Islands", "French Guyana",
+                  "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela")
+
+forest_change_sa <- forest_area_km %>%
+  filter(entity %in% sa_countries) %>%
+  filter(year == 1990 | year == 2020) %>%
+  pivot_wider(names_from = year, names_prefix = "forest_area_", values_from = forest_area ) %>%
+  mutate(forest_change = forest_area_2020 - forest_area_1990)
+```
+
+```{r}
+p2 <- forest_change_sa %>%
+    mutate(entity = fct_lump(entity, n = 6, w = abs(forest_change)),
+           entity = fct_reorder(entity, forest_change)) %>%
+  filter(entity != "Other") %>%
+  ggplot(aes(x = forest_change, y = entity, fill = entity)) +
+  geom_col() +
+  geom_vline(xintercept = 0, lty = 2) +
+  scale_x_continuous(labels = scales::label_number(scale = 1/1e6, suffix = " MM")) +
+  scale_fill_manual(values = sa_highlight_pal) +
+  expand_limits(x = c(-100e6, 100e6)) +
+  labs(title = "By Country (SA)",
+       x = "Forest Area (hectares)",
+       y = NULL) +
+  theme(legend.position = "none",
+        plot.title = element_text(family = "Oswald", size = 16, hjust = 0.5),
+        axis.title.x = element_text(size = 10)
+  #       axis.text.x = element_blank(),
+  #       axis.line.x = element_blank(),
+  #       legend.title = element_blank()
+         )
+
+p2
+```
+
+Cause of forest loss in Brazil
+```{r}
+brazil_cause <- tt$brazil_loss %>%
+  pivot_longer(cols = commercial_crops:small_scale_clearing, names_to = "cause", values_to = "forest_area") %>%
+  group_by(cause) %>%
+  summarize(forest_area = sum(forest_area), .groups = "drop") %>%
+  mutate(total_forest = sum(forest_area)) %>%
+  mutate(prop = forest_area / total_forest)
+```
+
+```{r}
+brazil_highlight_pal <- c("pasture" = "#FFFF00", "small_scale_clearing" = "#808080", "commercial_crops" = "#808080", 
+                        "fire" = "#808080", "selective_logging" = "#808080", "tree_plantations_including_palm" = "#808080",
+                        "natural_disturbances" = "#808080", "Other" = "#808080")
+
+p3 <- brazil_cause %>%
+  mutate(cause = fct_lump(cause, n = 7, w = prop),
+         cause = fct_reorder(cause, prop, .desc = TRUE)) %>%
+  ggplot(aes(x = cause, y = prop, fill = cause)) +
+  geom_bar(stat = "identity", width = 0.5) + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_discrete(labels = function(x) str_wrap(
+                              str_to_title(
+                                str_replace_all(x, "_", " ")
+                              ),10)
+                            ) +
+  scale_fill_manual(values = brazil_highlight_pal) +
+  labs(title = "By Cause (Brazil)",
+       x = NULL,
+       y = NULL) +
+  theme(legend.position = "none",
+        plot.title = element_text(family = "Oswald", size = 16, hjust = 0.5)
+        )
+
+p3
+```
+Combine the plots
+```{r}
+(p1 + p2) / p3 +
+  plot_annotation(title = "Global Deforestation (1990-2020)",
+                  caption = "Graphic: @datadavidz | Source: Our World in Data | #TidyTuesday",
+                  theme = theme(
+                    plot.title = element_text(family = "Oswald", size = 20))
+                  )
+```
+
+
+# Save Image
+
+```{r}
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day1", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 8, height = 4, units = "in")
+```
+
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "deforestation.png",
+  device = "png")
+
+```
