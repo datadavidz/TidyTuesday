@@ -265,7 +265,8 @@ Combine the plots
   plot_annotation(title = "Global Deforestation (1990-2020)",
                   caption = "Graphic: @datadavidz | Source: Our World in Data | #TidyTuesday",
                   theme = theme(
-                    plot.title = element_text(family = "Oswald", size = 20))
+                    plot.title = element_text(family = "Oswald", size = 20),
+                    plot.caption = element_text(size = 8))
                   )
 ```
 
