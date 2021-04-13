@@ -27,6 +27,11 @@ library(broom)
 library(rgeos)
 
 library(viridis)
+library(showtext)
+
+font_add_google(name = "Oswald")
+
+showtext_auto()
 ```
 
 # Load the weekly Data
@@ -70,6 +75,11 @@ tt %>%
 
 Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
 
+```{r}
+skimr::skim(post_offices)
+```
+
+
 Just get the post offices that are still open
 ```{r Wrangle}
 office_count <- post_offices %>%
@@ -92,6 +102,16 @@ office_ratio <- us_reps %>%
 # Visualize
 
 Using your processed dataset, create your unique visualization.
+
+```{r}
+post_offices %>%
+  filter(!is.na(discontinued)) %>%
+  filter(discontinued < 2021) %>%
+  ggplot(aes(x = discontinued)) +
+  geom_histogram() +
+  scale_x_continuous(limits = c(1800, 2021))
+```
+
 
 ```{r Visualize}
 # Download the Hexagones boundaries at geojson format here: https://team.carto.com/u/andrew/tables/andrew.us_states_hexgrid/public/map.
@@ -159,7 +179,7 @@ spdf_fortified$bin <- cut( spdf_fortified$pop_ratio , breaks=c(seq(0, 20000, 500
 my_palette <- rev(magma(8))[c(-1,-8)]
  
 # plot
-ggplot() +
+p1 <- ggplot() +
   geom_polygon(data = spdf_fortified, aes(fill = bin, x = long, y = lat, group = group) , size=0, alpha=0.9) +
   geom_text(data=centers, aes(x=x, y=y, label=id), color="white", size=3, alpha=0.6) +
   theme_void() +
@@ -168,15 +188,19 @@ ggplot() +
     name="Average population served per post office", 
     guide = guide_legend( keyheight = unit(3, units = "mm"), keywidth=unit(12, units = "mm"), label.position = "bottom", title.position = 'top', nrow=1) 
   ) +
-  ggtitle( "State-by-State Map of Population per Post Office" ) +
+  labs( title = "Population Served per Post Office ca. 2000",
+        caption = "Graphic: @datadavidz | Source: Blevins and Helbock | #TidyTuesday") +
   theme(
     legend.position = c(0.5, 0.9),
     text = element_text(color = "#22211d"),
     plot.background = element_rect(fill = "#f5f5f2", color = NA), 
     panel.background = element_rect(fill = "#f5f5f2", color = NA), 
     legend.background = element_rect(fill = "#f5f5f2", color = NA),
-    plot.title = element_text(size= 22, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    plot.title = element_text(family = "Oswald", size= 22, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    plot.caption = element_text(hjust = 0.95, vjust = 1)
   )
+
+p1
 ```
 
 
