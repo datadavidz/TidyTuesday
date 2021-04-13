@@ -1,0 +1,194 @@
+---
+title: "TidyTemplate"
+date: 2021-04-13
+output: html_output
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+
+library(geojsonio)
+#library(RColorBrewer)
+library(rgdal)
+
+library(broom)
+library(rgeos)
+
+library(viridis)
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-04-13")
+
+post_offices <- tt$post_offices
+
+us_reps <- read_csv(file = "./data/us_reps_state.csv") %>% janitor::clean_names()
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+Just get the post offices that are still open
+```{r Wrangle}
+office_count <- post_offices %>%
+  select(id, name, state, established, discontinued) %>%
+  filter(is.na(discontinued)) %>%
+  group_by(state) %>%
+  summarize(offices = n(), .groups = "drop")
+
+office_ratio <- us_reps %>%
+  left_join(tibble(state = state.name, id = state.abb), by = "state") %>%
+  left_join(office_count, by = c("id" =  "state")) %>%
+  mutate(rep_ratio = offices / representatives_number,
+         pop_ratio = pop / offices) %>%
+  arrange(desc(pop_ratio))
+  
+
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+```{r Visualize}
+# Download the Hexagones boundaries at geojson format here: https://team.carto.com/u/andrew/tables/andrew.us_states_hexgrid/public/map.
+
+# Load this file. (Note: I stored in a folder called DATA)
+spdf <- geojson_read("DATA/us_states_hexgrid.geojson",  what = "sp")
+
+# Bit of reformating
+spdf@data = spdf@data %>%
+  mutate(google_name = gsub(" \\(United States\\)", "", google_name))
+
+# Show it (requires rgdal library)
+plot(spdf)
+```
+
+```{r}
+# I need to 'fortify' the data to be able to show it with ggplot2 (we need a data frame format)
+#library(broom)
+spdf@data = spdf@data %>% mutate(google_name = gsub(" \\(United States\\)", "", google_name))
+#spdf_fortified <- tidy(spdf, region = "google_name")
+
+spdf_fortified <- tidy(spdf, region = "iso3166_2")
+
+# Calculate the centroid of each hexagon to add the label:
+library(rgeos)
+centers <- cbind.data.frame(data.frame(gCentroid(spdf, byid=TRUE), id=spdf@data$iso3166_2))
+ 
+# Now I can plot this shape easily as described before: (required package mapproj installed)
+ggplot() +
+  geom_polygon(data = spdf_fortified, aes( x = long, y = lat, group = group), fill="skyblue", color="white") +
+  geom_text(data=centers, aes(x=x, y=y, label=id)) +
+  theme_void() +
+  coord_map()
+```
+
+```{r}
+office_ratio %>%
+  ggplot(aes(x = pop_ratio)) +
+  geom_histogram(bins = 10)
+```
+
+```{r}
+spdf_fortified <- spdf_fortified %>%
+  left_join(select(office_ratio, id, pop_ratio), by = "id") %>%
+  filter(!is.na(pop_ratio))
+
+# Make a first chloropleth map
+ggplot() +
+  geom_polygon(data = spdf_fortified, aes(fill =  pop_ratio, x = long, y = lat, group = group)) +
+  scale_fill_gradient() +
+  theme_void() +
+  coord_map()
+```
+
+```{r}
+# Prepare binning
+spdf_fortified$bin <- cut( spdf_fortified$pop_ratio , breaks=c(seq(0, 20000, 5000), Inf), 
+                           labels=c("< 5K", "5-10K", "10-15K", "15-20K", "20K+") , include.lowest = TRUE )
+```
+
+
+```{r}
+# Prepare a color scale coming from the viridis color palette
+
+my_palette <- rev(magma(8))[c(-1,-8)]
+ 
+# plot
+ggplot() +
+  geom_polygon(data = spdf_fortified, aes(fill = bin, x = long, y = lat, group = group) , size=0, alpha=0.9) +
+  geom_text(data=centers, aes(x=x, y=y, label=id), color="white", size=3, alpha=0.6) +
+  theme_void() +
+  scale_fill_manual( 
+    values=my_palette, 
+    name="Average population served per post office", 
+    guide = guide_legend( keyheight = unit(3, units = "mm"), keywidth=unit(12, units = "mm"), label.position = "bottom", title.position = 'top', nrow=1) 
+  ) +
+  ggtitle( "State-by-State Map of Population per Post Office" ) +
+  theme(
+    legend.position = c(0.5, 0.9),
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA), 
+    panel.background = element_rect(fill = "#f5f5f2", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.title = element_text(size= 22, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+  )
+```
+
+
+# Save Image
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "My TidyTuesday Plot.png",
+  device = "png")
+
+```
