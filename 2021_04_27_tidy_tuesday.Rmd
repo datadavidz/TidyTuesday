@@ -1,0 +1,134 @@
+---
+title: "TidyTemplate"
+date: 2021-04-27
+output: html_output
+---
+
+# TidyTuesday
+
+Join the R4DS Online Learning Community in the weekly #TidyTuesday event!
+Every week we post a raw dataset, a chart or article related to that dataset, and ask you to explore the data.
+While the dataset will be “tamed”, it will not always be tidy! As such you might need to apply various R for Data Science techniques to wrangle the data into a true tidy format.
+The goal of TidyTuesday is to apply your R skills, get feedback, explore other’s work, and connect with the greater #RStats community!
+As such we encourage everyone of all skills to participate!
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(viridisLite)
+
+theme_set(theme_minimal(base_family = "mono"))
+
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-04-27")
+
+departures <- tt$departures
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+```{r Wrangle}
+departures %>% count(departure_code, sort = TRUE)
+departures %>% summarize(min = min(fyear), max = max(fyear))
+departures %>% filter(is.na(departure_code)) %>% View()
+
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+```{r Visualize}
+departures %>%
+  filter(!is.na(fyear)) %>%
+  group_by(fyear) %>%
+  summarize(n = n()) %>%
+  ggplot(aes(x = fyear, y = n)) +
+    geom_line()
+
+  
+```
+```{r, fig.height = 5, fig.width = 7}
+departures %>%
+  filter(fyear < 2019 & fyear > 1994) %>%
+  filter(!is.na(departure_code)) %>%
+  mutate(departure_code = as.character(departure_code)) %>%
+  mutate(departure_code = fct_recode(departure_code, Health = "1",
+                                      Health = "2",
+                                      Performance = "3",
+                                      Performance = "4",
+                                      `CEO Choice` = "5",
+                                      `CEO Choice` = "6",
+                                      Merger = "7",
+                                      `N/A` = "8",
+                                      `N/A` = "9"
+                                      )) %>%
+  group_by(fyear, departure_code) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  ggplot(aes(x = fyear, y = n, fill = departure_code)) +
+  #geom_bar(stat = "identity") +
+  geom_area() +
+  scale_fill_viridis_d(option = "plasma", direction = -1) +
+  labs(title = "Reasons for CEO Departures",
+       subtitle = "S&P 1500 Firms 1995-2018",
+       x = "Fiscal Year of Event",
+       y = "Number of Departures",
+       fill = NULL,
+       caption = "Graphic: @datadavidz | Source: DataIsPlural | #TidyTuesday") +
+  theme(legend.position = "top",
+        axis.title.x = element_text(margin = margin(t = 5, r = 0, b = 0, l = 0)),
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)))
+```
+
+
+
+# Save Image
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "My TidyTuesday Plot.png",
+  device = "png")
+
+```
