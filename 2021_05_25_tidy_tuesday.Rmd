@@ -1,0 +1,178 @@
+---
+title: "TidyTemplate"
+date: 2021-05-25
+output: html_output
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.showtext = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+
+library(scales)
+library(lubridate)
+
+library(ggimage)
+library(showtext)
+
+theme_set(theme_light())
+
+font_add_google(name =  "Press Start 2P", family = "nintendo")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+# Load the weekly Data
+
+Dowload the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2021-05-25")
+
+```
+
+
+# Readme
+
+Take a look at the readme for the weekly data to get insight on the dataset.
+This includes a data dictionary, source, and a link to an article on the data.
+
+```{r Readme, eval = interactive()}
+
+tt
+
+records <- tt$records
+drivers <- tt$drivers
+
+```
+
+
+# Glimpse Data
+
+Take an initial look at the format of the data available.
+
+```{r Glimpse}
+
+tt %>% 
+  map(glimpse)
+
+```
+
+# Wrangle
+
+Explore the data and process it into a nice format for plotting! Access each dataset by name by using a dollarsign after the `tt` object and then the name of the data set.
+
+65 players with records
+16 tracks, most records at Wario Stadium (201), least records at Bowser's Castle (69)
+There are three lap and single lap records
+
+```{r Wrangle}
+skimr::skim(drivers)
+skimr::skim(records)
+
+drivers %>% count(player, sort = TRUE)
+records %>% count(player, sort = TRUE)
+
+mario_kart <- records %>% 
+  left_join(drivers %>% 
+              select(position, player, total, nation) %>%
+              distinct(), by = "player")
+
+mario_kart %>% count(player, sort = TRUE)
+mario_kart %>% count(track, sort = TRUE)
+mario_kart %>% count(track, type, sort = TRUE)
+```
+Need to get top 5 drivers for each track
+```{r}
+#top driver time for each track
+best_times <- mario_kart %>%
+  filter(type == "Three Lap" & shortcut == "No") %>%
+  group_by(track, player) %>%
+  arrange(time) %>%
+  slice_max(1) %>%
+  ungroup()
+
+#top drivers for complete race and no shortcut
+top_drivers <- best_times %>%
+  group_by(track) %>%
+  arrange(time) %>%
+  slice(1:2) %>%
+  ungroup()
+
+#calculate difference from top time
+top_drivers <- top_drivers %>%
+  group_by(track) %>%
+  mutate(best_time = min(time)) %>%
+  ungroup() %>%
+  mutate(behind_leader = best_time - time)
+
+```
+
+
+# Visualize
+
+Using your processed dataset, create your unique visualization.
+
+```{r Visualize}
+mario_kart %>%
+  mutate(penev = ifelse(player == "Penev", TRUE, FALSE)) %>%
+  filter(shortcut == "No") %>%
+  #filter(track == "Bowser's Castle") %>%
+  ggplot(aes(x = date, y = time, color = penev)) +
+  geom_point() +
+  facet_wrap(~type)
+
+  
+```
+
+
+```{r, fig.width = 7, fig.height = 5}
+p1 <- top_drivers %>%
+  filter(track %in% c("Wario Stadium", "Rainbow Road", "D.K.'s Jungle Parkway", "Yoshi Valley")) %>%
+  mutate(track = str_wrap(track, 10)) %>%
+  ggplot(aes(x = behind_leader, y = track)) +
+  geom_text(aes(label = player), vjust = -1.75, family = "nintendo", size = 3, color = "gray90") +
+  geom_image(image = "./img/mario_kart2.png", size = 0.15) +
+  scale_x_continuous(limits = c(-0.125, 0.025))  +
+  geom_vline(xintercept = 0.0125, color = "gray50", size = 1, linetype = "dashed") +
+  annotate("text", x = 0.0225, y = 2.5, label = "FINISH", color = "gray80", family = "nintendo", angle = 270) +
+  labs(title = "Mario Kart 64 World Records",
+       subtitle = "Complete Race Record Holder and Runner-Up",
+       caption = "Graphic: @datadavidz | Source: Mario Kart World Records | #TidyTuesday",
+       x = "sec behind leader",
+       y = NULL) +
+  theme(plot.background = element_rect(fill = "gray20"),
+        panel.background = element_rect(fill = "gray20"),
+        
+        axis.text = element_text(family = "nintendo", color = "gray90"),
+        #axis.title.x = element_text(margin = margin(t = 0, r = 0, b = 10, l = 0)), 
+        axis.title.x = element_text(family = "nintendo", size = 10, color = "gray90", margin = margin(t = 5, r = 0, b = 10, l = 0)),
+        axis.text.y = element_text(margin = margin(t = 0, r = 5, b = 0, l = 10)),
+        axis.ticks = element_line(size = 1),
+        plot.title = element_text(family = "nintendo", color = "gray90"),
+        plot.subtitle = element_text(family = "nintendo", size = 10, color = "gray90"),
+        plot.caption = element_text(family = "nintendo", size = 6, color = "gray85"),
+        panel.border = element_rect(size = 3),
+        panel.grid = element_blank(),
+        plot.margin = unit(c(t = .1, r = .1, b = .1, l = .1), units = "in")
+        
+        )
+
+p1
+```
+
+# Save Image
+
+Save your image for sharing. Be sure to use the `#TidyTuesday` hashtag in your post on twitter! 
+
+```{r}
+ragg::agg_png(filename = "Mario_Kart_WR.png", width = 7, height = 5, units = "in", res = 320)
+p1
+dev.off()
+```
